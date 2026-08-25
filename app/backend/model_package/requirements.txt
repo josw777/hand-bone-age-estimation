@@ -1,0 +1,15 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+torch==2.12.0
+torchvision==0.27.0
+timm
+pandas
+numpy
+Pillow
+opencv-python
+loguru
+tqdm
+thop
+tabulate
+pycocotools
+psutil

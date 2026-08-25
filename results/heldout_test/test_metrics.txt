@@ -1,0 +1,20 @@
+FINAL HELD-OUT TEST
+========================================================================
+N        : 197
+MAE      : 4.244570 months
+RMSE     : 5.412469 months
+R²       : 0.983733
+Bias     : +0.794297 months
+MedianAE : 3.279160
+P90AE    : 8.687799
+P95AE    : 10.452319
+MaxAE    : 17.581078
+
+AE >=  6 : 51 (25.888%)
+AE >= 12 : 6 (3.046%)
+AE >= 15 : 2 (1.015%)
+AE >= 20 : 0 (0.000%)
+AE >= 24 : 0 (0.000%)
+
+TEST used for model selection : False
+External evaluation used              : False

@@ -1,0 +1,27 @@
+{
+  "model": "male_bias_refinement",
+  "model_selected_before_test": true,
+  "test_used_for_model_selection": false,
+  "metrics": {
+    "N": 197,
+    "MAE": 4.244570310950884,
+    "RMSE": 5.412468507553117,
+    "R2": 0.9837331256067285,
+    "Bias": 0.7942969036586394,
+    "MedianAE": 3.2791595458984375,
+    "P90AE": 8.687799072265625,
+    "P95AE": 10.452319335937492,
+    "MaxAE": 17.581077575683594,
+    "AE_ge_6_n": 51,
+    "AE_ge_6_pct": 25.888324873096447,
+    "AE_ge_12_n": 6,
+    "AE_ge_12_pct": 3.0456852791878175,
+    "AE_ge_15_n": 2,
+    "AE_ge_15_pct": 1.015228426395939,
+    "AE_ge_20_n": 0,
+    "AE_ge_20_pct": 0.0,
+    "AE_ge_24_n": 0,
+    "AE_ge_24_pct": 0.0
+  },
+  "external_evaluation_used": false
+}

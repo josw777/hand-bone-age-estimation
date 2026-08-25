@@ -1,0 +1,27 @@
+# Core deep learning
+torch
+torchvision
+timm
+
+# Image processing / data
+opencv-python
+numpy
+pandas
+Pillow
+tqdm
+
+# Evaluation / visualization
+scikit-learn
+matplotlib
+
+# YOLOX
+loguru
+tabulate
+thop
+pycocotools
+
+# Backend API
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
