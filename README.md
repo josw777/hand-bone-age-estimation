@@ -6,12 +6,15 @@
 
 ![Dashboard](assets/dashboard.png)
 
+---
+
 ## 1. Project Overview
 
 소아 골연령 평가는 성장 상태와 골격 성숙도를 판단하는 데 활용됩니다.
 
-하지만 실제 수부 X-ray는 촬영 환경에 따라 **손의 위치·크기·방향, 명암, 배경이 서로 다를 수 있어** 모델 입력의 편차가 커질 수 있습니다.  
-이 프로젝트에서는 단순히 영상의 밝기와 대비를 보정하는 데 그치지 않고, **손 영역을 자동으로 찾고 방향과 크기를 일정하게 맞추는 입력 표준화 파이프라인**을 구축한 뒤 골연령 예측 모델과 연결했습니다.
+하지만 실제 수부 X-ray는 촬영 환경에 따라 **손의 위치·크기·방향, 명암, 배경이 서로 다를 수 있어** 모델 입력의 편차가 커질 수 있습니다.
+
+본 프로젝트에서는 단순히 영상의 밝기와 대비를 보정하는 데 그치지 않고, **손 영역을 자동으로 찾고 방향과 크기를 일정하게 맞추는 입력 표준화 파이프라인**을 구축한 뒤 골연령 예측 모델과 연결했습니다.
 
 ### 핵심 흐름
 
@@ -31,10 +34,10 @@ X-ray 영상 특징 + 성별 정보 분석
 골연령 예측 (개월)
 ```
 
-기술적으로는 다음 모델과 전처리를 사용했습니다.
+### 사용 기술
 
 - **YOLOX-S**: 손 영역 검출
-- **DeepLabV3-MobileNetV3-Large**: 손 영역 segmentation
+- **DeepLabV3-MobileNetV3-Large**: 손 영역 Segmentation
 - **PCA 기반 정렬**: 손가락/손목 방향 보정
 - **Masked Percentile + Background Removal**: 명암 및 배경 표준화
 - **ConvNeXt V1-Tiny + Sex-specific Label Distribution Learning**: 골연령 예측
@@ -52,20 +55,21 @@ X-ray 영상 특징 + 성별 정보 분석
 - 성별 정보를 결합한 예측 구조 및 Label Distribution Learning 적용
 - 전처리 / Backbone / Loss / Attention / ROI 구조 비교 실험
 - Validation 및 Held-out Test 성능 분석
-- 성별·연령 구간별 오류 및 bias 분석
+- 성별·연령 구간별 오류 및 Bias 분석
 
 ---
 
 ## 3. Problem Solving
 
-### 초기 가설: 명암 보정이 성능을 높일 수 있을까?
+### 3.1 초기 가설: 명암 보정이 성능을 높일 수 있을까?
 
-프로젝트 초반에는 CLAHE, Percentile normalization 등 여러 명암 보정 방법을 적용했습니다.  
+프로젝트 초반에는 CLAHE, Percentile normalization 등 여러 명암 보정 방법을 적용했습니다.
+
 그러나 실험 결과 **개선 폭이 매우 작거나 오히려 성능이 낮아지는 경우도 있어**, 명암 보정만으로는 충분하지 않다고 판단했습니다.
 
-### 데이터 재분석: 영상마다 손의 위치와 방향이 달랐습니다
+### 3.2 데이터 재분석: 영상마다 손의 위치와 방향이 달랐습니다
 
-원본 X-ray를 다시 확인한 결과 영상마다 다음 차이가 존재했습니다.
+원본 X-ray를 다시 확인한 결과 영상마다 다음과 같은 차이가 존재했습니다.
 
 - 손의 위치
 - 손의 크기
@@ -74,7 +78,7 @@ X-ray 영상 특징 + 성별 정보 분석
 
 이에 따라 모델이 골격 특징 외의 불필요한 입력 차이까지 함께 학습할 수 있다고 판단했습니다.
 
-### 개선 방향: 손 자체를 기준으로 입력을 표준화
+### 3.3 개선 방향: 손 자체를 기준으로 입력을 표준화
 
 ```text
 Raw X-ray
@@ -94,7 +98,7 @@ PCA로 손의 주 방향 추정
 
 이 과정을 통해 촬영 조건이 달라도 모델에는 가능한 한 일정한 형태의 손 X-ray가 입력되도록 구성했습니다.
 
-![Input Standardization](assets/final_512_input.png)
+![Final 512 Input](assets/final_512_input.png)
 
 ---
 
@@ -138,7 +142,7 @@ PCA로 손의 주 방향 추정
 
 ### 5.1 Hand Detection — YOLOX-S
 
-YOLOX-S를 이용해 X-ray에서 수부 영역을 검출하고 segmentation 입력용 ROI를 추출했습니다.
+YOLOX-S를 이용해 X-ray에서 수부 영역을 검출하고 Segmentation 입력용 ROI를 추출했습니다.
 
 ```text
 src/detection/yolox_s_hand_exp.py
@@ -187,7 +191,7 @@ src/preprocessing/create_final_512_input.py
 
 ## 6. Bone Age Prediction Model
 
-최종 골연령 예측 모델의 backbone은 **ConvNeXt V1-Tiny (`convnext_tiny.fb_in1k`)** 입니다.
+최종 골연령 예측 모델의 Backbone은 **ConvNeXt V1-Tiny (`convnext_tiny.fb_in1k`)** 입니다.
 
 ```text
 512×512 X-ray
@@ -209,7 +213,7 @@ Expected Bone Age (months)
 
 ### Sex Information
 
-성별 값은 단순한 숫자로 직접 붙이지 않고 embedding을 통해 feature로 변환한 뒤 영상 특징과 결합했습니다.
+성별 값은 단순한 숫자로 직접 붙이지 않고 Embedding을 통해 feature로 변환한 뒤 영상 특징과 결합했습니다.
 
 ### Sex-specific Head
 
@@ -226,26 +230,25 @@ Female → Female 240-bin Head
 
 ## 7. Label Distribution Learning
 
-일반적인 scalar regression은 하나의 정답 나이를 직접 맞추도록 학습합니다.
+일반적인 Scalar Regression은 하나의 정답 나이를 직접 맞추도록 학습합니다.
 
 본 프로젝트에서는 정답 나이 하나만 독립적인 값으로 보지 않고, **정답 주변 연령도 서로 가까운 값이라는 연속적인 관계를 학습하도록 Label Distribution Learning(LDL)** 을 적용했습니다.
 
-예를 들어 정답이 120개월이라면 120개월에만 정답 신호를 주는 것이 아니라, 주변 월령에도 Gaussian 형태의 확률을 분배해 target distribution을 구성합니다.
+예를 들어 정답이 120개월이라면 120개월에만 정답 신호를 주는 것이 아니라, 주변 월령에도 Gaussian 형태의 확률을 분배해 Target Distribution을 구성합니다.
 
 - Number of bins: 240
 - Range: 1–240 months
 - Gaussian sigma: 10
 - KL weight: 0.025
 
-Loss:
+### Loss
 
-$$
-\mathcal{L}
-=
-MAE_{month}
-+
-0.025 \times D_{KL}(G \parallel P)
-$$
+```math
+\mathcal{L} = MAE_{\text{month}} + 0.025 \times D_{KL}(G \parallel P)
+```
+
+- **MAE**: 실제 골연령 오차를 최소화
+- **KL Divergence**: 예측 연령 분포가 정답 주변의 Gaussian 분포를 따르도록 학습
 
 즉, 실제 골연령 오차를 줄이는 동시에 예측 확률분포가 정답 주변의 연령 분포를 따르도록 학습했습니다.
 
@@ -259,7 +262,7 @@ src/bone_age/train_bone_age_ldl.py
 
 전체 Validation MAE만 확인하지 않고 **성별 × 연령 구간**으로 오류를 나누어 분석했습니다.
 
-분석 결과 저연령 남아 구간에서 상대적으로 큰 positive bias가 확인되어, 전체 모델을 다시 학습하는 대신 **Male LDL head만 targeted fine-tuning**하는 실험을 진행했습니다.
+분석 결과 저연령 남아 구간에서 상대적으로 큰 Positive Bias가 확인되어, 전체 모델을 다시 학습하는 대신 **Male LDL Head만 Targeted Fine-tuning**하는 실험을 진행했습니다.
 
 ### Trainable Scope
 
@@ -278,9 +281,9 @@ Trainable
 ### Refinement Objective
 
 - 모든 Male sample: 기존 LDL objective 유지
-- Male ≤ 60 months: positive group-bias penalty
-- Male > 60 months: base-model teacher consistency
-- Female branch: frozen
+- Male ≤ 60 months: Positive group-bias penalty
+- Male > 60 months: Base-model teacher consistency
+- Female branch: Frozen
 
 Validation에서 Male ≤60 months:
 
@@ -297,7 +300,7 @@ src/bone_age/train_male_bias_refinement.py
 
 ## 9. Model Experiments
 
-단순히 backbone만 변경하지 않고 전처리, loss, attention, local ROI, residual fusion, sex conditioning, bias regularization 등 여러 방향을 비교했습니다.
+단순히 Backbone만 변경하지 않고 전처리, Loss, Attention, Local ROI, Residual Fusion, Sex Conditioning, Bias Regularization 등 여러 방향을 비교했습니다.
 
 | Experiment | Val MAE | Val RMSE | Decision |
 |---|---:|---:|---|
@@ -308,8 +311,9 @@ src/bone_age/train_male_bias_refinement.py
 | Young-Male Bias Refinement | 5.825 | 8.105 | **Final selected** |
 | 768×512 Resolution Ablation | 5.989 | 8.421 | Rejected |
 
-Validation MAE가 가장 낮았던 residual fusion은 whole-hand와 local ROI expert를 동시에 사용해야 했습니다.  
-개선 폭에 비해 inference 구조가 복잡해졌기 때문에, 최종 배포에서는 **단일 whole-hand 구조를 유지하면서 subgroup bias를 직접 보완한 targeted refinement**를 선택했습니다.
+Validation MAE가 가장 낮았던 Residual Fusion은 Whole-hand와 Local ROI Expert를 동시에 사용해야 했습니다.
+
+개선 폭에 비해 Inference 구조가 복잡해졌기 때문에, 최종 배포에서는 **단일 Whole-hand 구조를 유지하면서 Subgroup Bias를 직접 보완한 Targeted Refinement**를 선택했습니다.
 
 전체 실험 기록:
 
@@ -320,7 +324,7 @@ Validation MAE가 가장 낮았던 residual fusion은 whole-hand와 local ROI ex
 
 ## 10. Dashboard
 
-학습된 모델을 실제 추론 흐름으로 확인할 수 있도록 dashboard를 구성했습니다.
+학습된 모델을 실제 추론 흐름으로 확인할 수 있도록 Dashboard를 구성했습니다.
 
 ```text
 X-ray Upload
@@ -486,7 +490,7 @@ python src/preprocessing/create_final_512_input.py
 
 ## Notes
 
-- 본 저장소는 프로젝트의 전처리, 모델 학습, 평가, inference pipeline을 재구성할 수 있도록 정리했습니다.
+- 본 저장소는 프로젝트의 전처리, 모델 학습, 평가, Inference Pipeline을 재구성할 수 있도록 정리했습니다.
 - 원본 의료영상 및 학습 데이터셋은 저장소에 포함하지 않습니다.
 - `outputs/`는 학습 및 전처리 과정의 중간 결과이므로 `.gitignore`에서 제외합니다.
 - 공개 최종 평가 결과는 `results/heldout_test/`에 보관합니다.
