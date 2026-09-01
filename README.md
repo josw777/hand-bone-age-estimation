@@ -175,7 +175,7 @@ src/preprocessing/create_seg_aligned_dataset.py
 정렬된 손 영상에는 다음 처리를 적용했습니다.
 
 1. Segmentation foreground 내부에서 P1 / P99 계산
-2. P1~P99 범위를 0~255로 선형 정규화
+2. P1-P99 범위를 0-255로 선형 정규화
 3. Aspect ratio를 유지해 resize
 4. 512×512 center padding
 5. Mask 약 3 px dilation
