@@ -1,8 +1,8 @@
 # Hand Bone Age Estimation
 
-> **좌측 손 X-ray와 성별 정보를 입력받아 골연령(Bone Age)을 개월 단위로 예측하는 AI 프로젝트**
+> **좌측 손 X-ray와 성별 정보를 입력받아 뼈나이(골연령, Bone Age)를 개월 단위로 예측하는 AI 프로젝트**
 >
-> 촬영마다 달라지는 손의 위치·크기·방향과 영상 명암을 자동으로 보정한 뒤, 표준화된 X-ray를 기반으로 골연령을 예측합니다.
+> 촬영마다 달라지는 손의 위치·크기·방향과 영상 명암을 자동으로 보정한 뒤, 표준화된 X-ray를 기반으로 뼈나이를 예측합니다.
 
 ![Dashboard](assets/dashboard.png)
 
@@ -10,11 +10,11 @@
 
 ## 1. Project Overview
 
-소아 골연령 평가는 성장 상태와 골격 성숙도를 판단하는 데 활용됩니다.
+소아의 뼈나이(골연령)는 성장 상태와 골격 성숙도를 판단하는 데 활용됩니다.
 
-하지만 실제 수부 X-ray는 촬영 환경에 따라 **손의 위치·크기·방향, 명암, 배경이 서로 다를 수 있어** 모델 입력의 편차가 커질 수 있습니다.
+하지만 실제 손 X-ray는 촬영 환경에 따라 **손의 위치·크기·방향, 명암, 배경이 서로 다를 수 있어** 모델 입력의 편차가 커질 수 있습니다.
 
-본 프로젝트에서는 단순히 영상의 밝기와 대비를 보정하는 데 그치지 않고, **손 영역을 자동으로 찾고 방향과 크기를 일정하게 맞추는 입력 표준화 파이프라인**을 구축한 뒤 골연령 예측 모델과 연결했습니다.
+본 프로젝트에서는 단순히 영상의 밝기와 대비를 보정하는 데 그치지 않고, **손 영역을 자동으로 찾고 방향과 크기를 일정하게 맞추는 입력 표준화 파이프라인**을 구축한 뒤 뼈나이 예측 모델과 연결했습니다.
 
 ### 핵심 흐름
 
@@ -31,7 +31,7 @@
     ↓
 X-ray 영상 특징 + 성별 정보 분석
     ↓
-골연령 예측 (개월)
+뼈나이 예측 (개월)
 ```
 
 ### 사용 기술
@@ -40,7 +40,7 @@ X-ray 영상 특징 + 성별 정보 분석
 - **DeepLabV3-MobileNetV3-Large**: 손 영역 Segmentation
 - **PCA 기반 정렬**: 손가락/손목 방향 보정
 - **Masked Percentile + Background Removal**: 명암 및 배경 표준화
-- **ConvNeXt V1-Tiny + Sex-specific Label Distribution Learning**: 골연령 예측
+- **ConvNeXt V1-Tiny + Sex-specific Label Distribution Learning**: 뼈나이 예측
 
 ---
 
@@ -48,10 +48,10 @@ X-ray 영상 특징 + 성별 정보 분석
 
 **7인 팀 프로젝트**에서 다음 영역을 담당했습니다.
 
-- 수부 X-ray 데이터 전처리 및 입력 표준화 파이프라인 구축
+- 손 X-ray 데이터 전처리 및 입력 표준화 파이프라인 구축
 - YOLOX-S 기반 손 영역 검출 실험
 - Segmentation mask 기반 손 영역 분리 및 PCA 방향 정렬
-- ConvNeXt 기반 골연령 예측 모델 개발
+- ConvNeXt 기반 뼈나이 예측 모델 개발
 - 성별 정보를 결합한 예측 구조 및 Label Distribution Learning 적용
 - 전처리 / Backbone / Loss / Attention / ROI 구조 비교 실험
 - Validation 및 Held-out Test 성능 분석
@@ -142,7 +142,7 @@ PCA로 손의 주 방향 추정
 
 ### 5.1 Hand Detection — YOLOX-S
 
-YOLOX-S를 이용해 X-ray에서 수부 영역을 검출하고 Segmentation 입력용 ROI를 추출했습니다.
+YOLOX-S를 이용해 X-ray에서 손 영역을 검출하고 Segmentation 입력용 ROI를 추출했습니다.
 
 ```text
 src/detection/yolox_s_hand_exp.py
@@ -152,7 +152,7 @@ src/detection/yolox_s_hand_exp.py
 
 ### 5.2 Hand Segmentation
 
-DeepLabV3-MobileNetV3-Large를 이용해 손 foreground mask를 생성했습니다.
+DeepLabV3-MobileNetV3-Large를 이용해 손 영역 mask를 생성했습니다.
 
 ```text
 src/segmentation/train_hand_segmentation.py
@@ -162,7 +162,7 @@ src/segmentation/train_hand_segmentation.py
 
 ### 5.3 PCA-based Alignment
 
-Segmentation mask의 foreground 좌표를 이용해 PCA 주축을 계산하고, 손가락과 손목 방향을 추가로 확인해 손 방향을 정렬했습니다.
+Segmentation mask의 손 영역 좌표를 이용해 PCA 주축을 계산하고, 손가락과 손목 방향을 추가로 확인해 손 방향을 정렬했습니다.
 
 ```text
 src/preprocessing/create_seg_aligned_dataset.py
@@ -174,7 +174,7 @@ src/preprocessing/create_seg_aligned_dataset.py
 
 정렬된 손 영상에는 다음 처리를 적용했습니다.
 
-1. Segmentation foreground 내부에서 P1 / P99 계산
+1. Segmentation mask의 손 영역 내부에서 P1 / P99 계산
 2. P1-P99 범위를 0-255로 선형 정규화
 3. Aspect ratio를 유지해 resize
 4. 512×512 center padding
@@ -185,13 +185,13 @@ src/preprocessing/create_seg_aligned_dataset.py
 src/preprocessing/create_final_512_input.py
 ```
 
-배경 제거는 단독 성능 향상을 위한 기법이라기보다, 촬영 환경에 따른 비수부 영역의 영향을 줄이고 최종 입력 형식을 일관되게 만들기 위한 표준화 단계로 사용했습니다.
+배경 제거는 단독 성능 향상을 위한 기법이라기보다, 촬영 환경에 따른 비손 영역의 영향을 줄이고 최종 입력 형식을 일관되게 만들기 위한 표준화 단계로 사용했습니다.
 
 ---
 
 ## 6. Bone Age Prediction Model
 
-최종 골연령 예측 모델의 Backbone은 **ConvNeXt V1-Tiny (`convnext_tiny.fb_in1k`)** 입니다.
+최종 뼈나이 예측 모델의 Backbone은 **ConvNeXt V1-Tiny (`convnext_tiny.fb_in1k`)** 입니다.
 
 ```text
 512×512 X-ray
@@ -224,17 +224,17 @@ Male   → Male 240-bin Head
 Female → Female 240-bin Head
 ```
 
-각 bin은 1~240개월을 의미하며, 최종 골연령은 예측 확률분포의 기대값으로 계산합니다.
+각 bin은 1~240개월을 의미하며, 최종 뼈나이은 예측 확률분포의 기대값으로 계산합니다.
 
 ---
 
 ## 7. Label Distribution Learning
 
-일반적인 Scalar Regression은 하나의 정답 나이를 직접 맞추도록 학습합니다.
+일반적인 단일값 회귀(Scalar Regression)는 하나의 정답 나이를 직접 맞추도록 학습합니다.
 
 본 프로젝트에서는 정답 나이 하나만 독립적인 값으로 보지 않고, **정답 주변 연령도 서로 가까운 값이라는 연속적인 관계를 학습하도록 Label Distribution Learning(LDL)** 을 적용했습니다.
 
-예를 들어 정답이 120개월이라면 120개월에만 정답 신호를 주는 것이 아니라, 주변 월령에도 Gaussian 형태의 확률을 분배해 Target Distribution을 구성합니다.
+예를 들어 정답이 120개월이라면 120개월에만 정답 신호를 주는 것이 아니라, 주변 연령에도 Gaussian 형태의 확률을 분배해 정답 분포(Target Distribution)를 구성합니다.
 
 - Number of bins: 240
 - Range: 1–240 months
@@ -247,10 +247,10 @@ Female → Female 240-bin Head
 \mathcal{L} = MAE_{\text{month}} + 0.025 \times D_{KL}(G \parallel P)
 ```
 
-- **MAE**: 실제 골연령 오차를 최소화
+- **MAE**: 실제 뼈나이 오차를 최소화
 - **KL Divergence**: 예측 연령 분포가 정답 주변의 Gaussian 분포를 따르도록 학습
 
-즉, 실제 골연령 오차를 줄이는 동시에 예측 확률분포가 정답 주변의 연령 분포를 따르도록 학습했습니다.
+즉, 실제 뼈나이 오차를 줄이는 동시에 예측 확률분포가 정답 주변의 연령 분포를 따르도록 학습했습니다.
 
 ```text
 src/bone_age/train_bone_age_ldl.py
@@ -262,7 +262,7 @@ src/bone_age/train_bone_age_ldl.py
 
 전체 Validation MAE만 확인하지 않고 **성별 × 연령 구간**으로 오류를 나누어 분석했습니다.
 
-분석 결과 저연령 남아 구간에서 상대적으로 큰 Positive Bias가 확인되어, 전체 모델을 다시 학습하는 대신 **Male LDL Head만 Targeted Fine-tuning**하는 실험을 진행했습니다.
+분석 결과 저연령 남아 구간에서 상대적으로 큰 과대예측 편향(Positive Bias)이 확인되어, 전체 모델을 다시 학습하는 대신 **Male LDL Head만 선택적으로 미세조정(Targeted Fine-tuning)**하는 실험을 진행했습니다.
 
 ### Trainable Scope
 
