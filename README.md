@@ -1,209 +1,253 @@
 # Hand Bone Age Estimation
 
-> **좌측 수부 X-ray 기반 골연령(Bone Age) 예측 AI**  
-> YOLOX-S 기반 손 검출, DeepLabV3 기반 손 영역 분할, PCA 기반 방향 정렬, Masked Percentile 전처리와 ConvNeXt V1-Tiny + Sex-specific Label Distribution Learning을 결합한 end-to-end 골연령 예측 프로젝트입니다.
+> **좌측 손 X-ray와 성별 정보를 입력받아 골연령(Bone Age)을 개월 단위로 예측하는 AI 프로젝트**
+>
+> 촬영마다 달라지는 손의 위치·크기·방향과 영상 명암을 자동으로 보정한 뒤, 표준화된 X-ray를 기반으로 골연령을 예측합니다.
 
-<p align="center">
-  <img src="assets/model_architecture.png" width="95%" alt="Final model architecture"/>
-</p>
+![Dashboard](assets/dashboard.png)
 
-## Portfolio
-[View Project Presentation](docs/hand_bone_age_portfolio.pdf)
+## 1. Project Overview
 
-## Final Performance
+소아 골연령 평가는 성장 상태와 골격 성숙도를 판단하는 데 활용됩니다.
 
-| Metric | Held-out Test |
+하지만 실제 수부 X-ray는 촬영 환경에 따라 **손의 위치·크기·방향, 명암, 배경이 서로 다를 수 있어** 모델 입력의 편차가 커질 수 있습니다.  
+이 프로젝트에서는 단순히 영상의 밝기와 대비를 보정하는 데 그치지 않고, **손 영역을 자동으로 찾고 방향과 크기를 일정하게 맞추는 입력 표준화 파이프라인**을 구축한 뒤 골연령 예측 모델과 연결했습니다.
+
+### 핵심 흐름
+
+```text
+좌측 손 X-ray
+    ↓
+손 영역 자동 검출
+    ↓
+손 모양 분리
+    ↓
+손 방향 자동 정렬
+    ↓
+512×512 입력 표준화
+    ↓
+X-ray 영상 특징 + 성별 정보 분석
+    ↓
+골연령 예측 (개월)
+```
+
+기술적으로는 다음 모델과 전처리를 사용했습니다.
+
+- **YOLOX-S**: 손 영역 검출
+- **DeepLabV3-MobileNetV3-Large**: 손 영역 segmentation
+- **PCA 기반 정렬**: 손가락/손목 방향 보정
+- **Masked Percentile + Background Removal**: 명암 및 배경 표준화
+- **ConvNeXt V1-Tiny + Sex-specific Label Distribution Learning**: 골연령 예측
+
+---
+
+## 2. My Contribution
+
+**7인 팀 프로젝트**에서 다음 영역을 담당했습니다.
+
+- 수부 X-ray 데이터 전처리 및 입력 표준화 파이프라인 구축
+- YOLOX-S 기반 손 영역 검출 실험
+- Segmentation mask 기반 손 영역 분리 및 PCA 방향 정렬
+- ConvNeXt 기반 골연령 예측 모델 개발
+- 성별 정보를 결합한 예측 구조 및 Label Distribution Learning 적용
+- 전처리 / Backbone / Loss / Attention / ROI 구조 비교 실험
+- Validation 및 Held-out Test 성능 분석
+- 성별·연령 구간별 오류 및 bias 분석
+
+---
+
+## 3. Problem Solving
+
+### 초기 가설: 명암 보정이 성능을 높일 수 있을까?
+
+프로젝트 초반에는 CLAHE, Percentile normalization 등 여러 명암 보정 방법을 적용했습니다.  
+그러나 실험 결과 **개선 폭이 매우 작거나 오히려 성능이 낮아지는 경우도 있어**, 명암 보정만으로는 충분하지 않다고 판단했습니다.
+
+### 데이터 재분석: 영상마다 손의 위치와 방향이 달랐습니다
+
+원본 X-ray를 다시 확인한 결과 영상마다 다음 차이가 존재했습니다.
+
+- 손의 위치
+- 손의 크기
+- 촬영 방향과 회전
+- 명암과 배경
+
+이에 따라 모델이 골격 특징 외의 불필요한 입력 차이까지 함께 학습할 수 있다고 판단했습니다.
+
+### 개선 방향: 손 자체를 기준으로 입력을 표준화
+
+```text
+Raw X-ray
+    ↓
+YOLOX-S로 손 위치 검출
+    ↓
+Segmentation으로 손 영역 분리
+    ↓
+PCA로 손의 주 방향 추정
+    ↓
+손가락/손목 방향 확인 후 정렬
+    ↓
+명암 정규화 + 배경 제거
+    ↓
+512×512 입력 생성
+```
+
+이 과정을 통해 촬영 조건이 달라도 모델에는 가능한 한 일정한 형태의 손 X-ray가 입력되도록 구성했습니다.
+
+![Input Standardization](assets/final_512_input.png)
+
+---
+
+## 4. Final Performance
+
+### Bone Age Prediction — Held-out Test
+
+최종 모델 선택이 완료된 이후, 모델 및 하이퍼파라미터 선택에 사용하지 않은 **Held-out Test 197건**을 1회 평가했습니다.
+
+| Metric | Result |
 |---|---:|
-| **N** | **197** |
-| **MAE** | **4.245 months** |
-| **RMSE** | **5.412 months** |
-| **R²** | **0.9837** |
-| **Bias** | **+0.794 months** |
+| N | 197 |
+| MAE | **4.245 months** |
+| RMSE | **5.412 months** |
+| R² | **0.9837** |
+| Bias | +0.794 months |
 | Median AE | 3.279 months |
 | P90 AE | 8.688 months |
 | P95 AE | 10.452 months |
 | Max AE | 17.581 months |
 
-> Held-out test는 **모델 선택이 완료된 이후 최종 성능 기록을 위해 1회 평가**했으며, 모델/하이퍼파라미터 선택에는 사용하지 않았습니다.
+> Held-out Test 결과는 모델 선택이나 하이퍼파라미터 조정에 다시 사용하지 않았습니다.
 
----
-
-## 1. Project Overview
-
-소아 골연령 평가는 성장 상태와 골격 성숙도를 판단하는 데 활용됩니다.  
-이 프로젝트에서는 수부 X-ray의 촬영 위치, 회전, 명암, 배경 차이를 줄이고, 성별에 따른 골격 발달 차이를 모델에 반영하는 것을 목표로 했습니다.
-
-최종 파이프라인은 다음과 같습니다.
-
-```text
-Raw Left-hand X-ray
-        ↓
-YOLOX-S Hand Detection
-        ↓
-DeepLabV3-MobileNetV3-Large Segmentation
-        ↓
-PCA + Finger/Wrist Direction Alignment
-        ↓
-Native Masked Percentile (P1-P99)
-        ↓
-Mask Dilation + Background Removal
-        ↓
-512×512 Standardized Input
-        ↓
-ConvNeXt V1-Tiny
-        ↓
-Image Feature 512 + Sex Embedding 32
-        ↓
-Fusion Feature 128
-        ↓
-Male / Female Separate 240-bin LDL Head
-        ↓
-Expected Bone Age (months)
-```
-
----
-
-## 2. Spatial Input Standardization
-
-수부 X-ray의 촬영 방향과 배경 차이를 그대로 학습시키기보다, 모델에 입력되기 전에 손의 위치와 방향을 표준화했습니다.
-
-<p align="center">
-  <img src="assets/raw_xray.png" width="14%" alt="Raw X-ray"/>
-  <img src="assets/yolo_roi_crop.png" width="14%" alt="YOLO ROI crop"/>
-  <img src="assets/segmentation_mask.png" width="14%" alt="Segmentation mask"/>
-  <img src="assets/pca_axis_estimation.png" width="14%" alt="PCA axis"/>
-  <img src="assets/aligned_mask.png" width="14%" alt="Aligned mask"/>
-  <img src="assets/final_512_input.png" width="14%" alt="Final 512 input"/>
-</p>
-
-### 2.1 Hand Detection — YOLOX-S
-
-YOLOX-S를 이용해 수부 영역을 검출하고 segmentation 입력용 ROI를 추출했습니다.
+### Hand Detection — YOLOX-S
 
 | Metric | Result |
 |---|---:|
 | mAP@0.5:0.95 | **99.4%** |
 | AP@0.5 | **100.0%** |
 
-관련 코드:
-
-```text
-src/detection/yolox_s_hand_exp.py
-```
-
-### 2.2 Hand Segmentation
-
-DeepLabV3-MobileNetV3-Large를 사용해 손 foreground mask를 생성했습니다.
+### Hand Segmentation
 
 | Metric | Result |
 |---|---:|
 | Dice | **98.67%** |
 | IoU | **97.38%** |
 
-관련 코드:
+---
+
+## 5. Input Standardization Pipeline
+
+### 5.1 Hand Detection — YOLOX-S
+
+YOLOX-S를 이용해 X-ray에서 수부 영역을 검출하고 segmentation 입력용 ROI를 추출했습니다.
+
+```text
+src/detection/yolox_s_hand_exp.py
+```
+
+![YOLO ROI](assets/yolo_roi_crop.png)
+
+### 5.2 Hand Segmentation
+
+DeepLabV3-MobileNetV3-Large를 이용해 손 foreground mask를 생성했습니다.
 
 ```text
 src/segmentation/train_hand_segmentation.py
 ```
 
-### 2.3 PCA-based Alignment
+![Segmentation Mask](assets/segmentation_mask.png)
 
-Segmentation mask의 foreground 좌표로 PCA 주축을 추정한 뒤, finger/wrist 방향을 추가로 확인하여 손의 방향을 정렬했습니다.
+### 5.3 PCA-based Alignment
+
+Segmentation mask의 foreground 좌표를 이용해 PCA 주축을 계산하고, 손가락과 손목 방향을 추가로 확인해 손 방향을 정렬했습니다.
 
 ```text
 src/preprocessing/create_seg_aligned_dataset.py
 ```
 
-이 단계의 출력은 intensity normalization을 적용하지 않은 **native-resolution aligned image + mask**입니다.
+![PCA Axis](assets/pca_axis_estimation.png)
 
-### 2.4 Final 512×512 Input
+### 5.4 Final 512×512 Input
 
-정렬된 손 영상에 다음 전처리를 적용했습니다.
+정렬된 손 영상에는 다음 처리를 적용했습니다.
 
-1. Native segmentation foreground 내부에서 **P1 / P99** 계산
-2. P1~P99 범위를 기준으로 intensity를 0~255로 선형 정규화
-3. Aspect ratio 유지 후 **512×512 resize + center padding**
-4. 최종 mask를 약 **3 px dilation**
-5. Dilated mask 밖 background를 **0**으로 제거
+1. Segmentation foreground 내부에서 P1 / P99 계산
+2. P1~P99 범위를 0~255로 선형 정규화
+3. Aspect ratio를 유지해 resize
+4. 512×512 center padding
+5. Mask 약 3 px dilation
+6. Dilated mask 밖 배경을 0으로 제거
 
 ```text
 src/preprocessing/create_final_512_input.py
 ```
 
-배경 제거는 단독 성능 향상 기법이라기보다, 촬영 환경에 따른 비수부 영역의 영향을 줄이고 입력 형식을 일관되게 유지하기 위한 최종 표준화 단계로 사용했습니다.
+배경 제거는 단독 성능 향상을 위한 기법이라기보다, 촬영 환경에 따른 비수부 영역의 영향을 줄이고 최종 입력 형식을 일관되게 만들기 위한 표준화 단계로 사용했습니다.
 
 ---
 
-## 3. Bone Age Prediction Model
+## 6. Bone Age Prediction Model
 
-### Backbone
-
-최종 backbone은 **ConvNeXt V1-Tiny (`convnext_tiny.fb_in1k`)** 입니다.
-
-최종 모델 입력은 grayscale 이미지를 동일 값의 RGB 3채널로 반복하여 사용합니다.
+최종 골연령 예측 모델의 backbone은 **ConvNeXt V1-Tiny (`convnext_tiny.fb_in1k`)** 입니다.
 
 ```text
-512×512 Input
-    ↓
+512×512 X-ray
+      ↓
 ConvNeXt V1-Tiny
-    ↓
-Image Feature: 512-d
-```
-
-### Sex Embedding & Feature Fusion
-
-성별 값은 단순 one-hot concatenation이 아니라 embedding을 통해 feature로 변환합니다.
-
-```text
+      ↓
 Image Feature 512-d
-        +
+      +
 Sex Embedding 32-d
-        ↓
+      ↓
 Fusion Feature 128-d
+      ↓
+Male / Female Separate 240-bin Head
+      ↓
+Expected Bone Age (months)
 ```
 
-### Sex-specific LDL Head
+![Model Architecture](assets/model_architecture.png)
 
-Fusion feature는 성별에 따라 별도의 240-bin head로 전달됩니다.
+### Sex Information
+
+성별 값은 단순한 숫자로 직접 붙이지 않고 embedding을 통해 feature로 변환한 뒤 영상 특징과 결합했습니다.
+
+### Sex-specific Head
+
+Fusion feature는 성별에 따라 서로 다른 240-bin prediction head로 전달됩니다.
 
 ```text
 Male   → Male 240-bin Head
 Female → Female 240-bin Head
 ```
 
-각 bin은 **1~240 months**를 나타내며, 최종 골연령은 예측 확률분포의 기대값으로 계산합니다.
-
-\[
-E[\mathrm{Age}] = \sum_{i=1}^{240} p_i \cdot age_i
-\]
+각 bin은 1~240개월을 의미하며, 최종 골연령은 예측 확률분포의 기대값으로 계산합니다.
 
 ---
 
-## 4. Label Distribution Learning
+## 7. Label Distribution Learning
 
-일반 scalar regression은 하나의 나이 값만 직접 예측하지만, LDL은 정답 월령 주변에도 확률을 분배하여 **연령의 연속성과 불확실성**을 함께 학습합니다.
+일반적인 scalar regression은 하나의 정답 나이를 직접 맞추도록 학습합니다.
 
-정답 월령 \(y\)에 대해 Gaussian target distribution을 구성합니다.
+본 프로젝트에서는 정답 나이 하나만 독립적인 값으로 보지 않고, **정답 주변 연령도 서로 가까운 값이라는 연속적인 관계를 학습하도록 Label Distribution Learning(LDL)** 을 적용했습니다.
 
-- Number of bins: **240**
-- Range: **1–240 months**
-- Gaussian sigma: **10**
-- KL weight: **0.025**
+예를 들어 정답이 120개월이라면 120개월에만 정답 신호를 주는 것이 아니라, 주변 월령에도 Gaussian 형태의 확률을 분배해 target distribution을 구성합니다.
 
-최종 학습 loss는 다음과 같습니다.
+- Number of bins: 240
+- Range: 1–240 months
+- Gaussian sigma: 10
+- KL weight: 0.025
 
-\[
+Loss:
+
+$$
 \mathcal{L}
 =
-\mathrm{MAE}_{month}
+MAE_{month}
 +
-0.025 \times
-D_{KL}(G \parallel P)
-\]
+0.025 \times D_{KL}(G \parallel P)
+$$
 
-즉, 실제 골연령 값의 절대오차를 최소화하면서 예측 분포가 정답 주변의 target distribution을 따르도록 학습합니다.
-
-관련 코드:
+즉, 실제 골연령 오차를 줄이는 동시에 예측 확률분포가 정답 주변의 연령 분포를 따르도록 학습했습니다.
 
 ```text
 src/bone_age/train_bone_age_ldl.py
@@ -211,12 +255,11 @@ src/bone_age/train_bone_age_ldl.py
 
 ---
 
-## 5. Subgroup Error Analysis & Bias Refinement
+## 8. Error Analysis & Bias Refinement
 
-전체 validation MAE만 확인하지 않고 **성별 × 연령 구간**으로 오류를 분석했습니다.
+전체 Validation MAE만 확인하지 않고 **성별 × 연령 구간**으로 오류를 나누어 분석했습니다.
 
-분석 결과, 저연령 남아에서 상대적으로 큰 positive bias가 확인되었습니다.  
-이를 보완하기 위해 전체 모델을 다시 학습하지 않고 **Male LDL head만 targeted fine-tuning**했습니다.
+분석 결과 저연령 남아 구간에서 상대적으로 큰 positive bias가 확인되어, 전체 모델을 다시 학습하는 대신 **Male LDL head만 targeted fine-tuning**하는 실험을 진행했습니다.
 
 ### Trainable Scope
 
@@ -237,24 +280,14 @@ Trainable
 - 모든 Male sample: 기존 LDL objective 유지
 - Male ≤ 60 months: positive group-bias penalty
 - Male > 60 months: base-model teacher consistency
-- Female branch: 완전 고정
+- Female branch: frozen
 
-기본 설정:
-
-```text
-lambda_bias = 0.005
-lambda_keep = 0.25
-LR          = 1e-5
-```
-
-Validation에서 Male ≤60 months 성능:
+Validation에서 Male ≤60 months:
 
 | Metric | Result |
 |---|---:|
-| MAE | **5.880 months** |
-| Bias | **+3.528 months** |
-
-관련 코드:
+| MAE | 5.880 months |
+| Bias | +3.528 months |
 
 ```text
 src/bone_age/train_male_bias_refinement.py
@@ -262,90 +295,52 @@ src/bone_age/train_male_bias_refinement.py
 
 ---
 
-## 6. Model Experiments
+## 9. Model Experiments
 
-단순 backbone 변경뿐 아니라 ordinal loss, attention, local ROI, residual fusion, sex conditioning, bias regularization 등 다양한 구조 실험을 수행했습니다.
-
-대표 결과:
+단순히 backbone만 변경하지 않고 전처리, loss, attention, local ROI, residual fusion, sex conditioning, bias regularization 등 여러 방향을 비교했습니다.
 
 | Experiment | Val MAE | Val RMSE | Decision |
 |---|---:|---:|---|
 | Core Sex-specific LDL | 5.842 | 8.118 | Core architecture |
 | Weak CDF Regularization | 5.807 | 8.090 | Small gain |
 | Spatial Attention Prior | 5.818 | 8.091 | Not selected |
-| Whole-hand + Upper ROI Residual Fusion | **5.788** | 8.066 | Higher complexity |
+| Whole-hand + Upper ROI Residual Fusion | 5.788 | 8.066 | Higher complexity |
 | Young-Male Bias Refinement | 5.825 | 8.105 | **Final selected** |
 | 768×512 Resolution Ablation | 5.989 | 8.421 | Rejected |
 
-Validation MAE가 가장 낮았던 residual fusion 모델은 whole-hand + local ROI expert를 동시에 사용해야 했습니다.  
-개선 폭에 비해 inference pipeline 복잡도가 증가했기 때문에, 최종 배포에서는 **단일 whole-hand 구조를 유지하면서 실제 subgroup bias를 직접 개선한 targeted refinement**를 선택했습니다.
+Validation MAE가 가장 낮았던 residual fusion은 whole-hand와 local ROI expert를 동시에 사용해야 했습니다.  
+개선 폭에 비해 inference 구조가 복잡해졌기 때문에, 최종 배포에서는 **단일 whole-hand 구조를 유지하면서 subgroup bias를 직접 보완한 targeted refinement**를 선택했습니다.
 
-전체 실험 로그:
+전체 실험 기록:
 
 - [`experiments/README.md`](experiments/README.md)
 - [`experiments/experiment_summary.csv`](experiments/experiment_summary.csv)
 
 ---
 
-## 7. Held-out Test Evaluation
+## 10. Dashboard
 
-최종 모델 선택이 완료된 뒤 held-out test 197건에 대해 평가했습니다.
-
-```text
-MAE      : 4.245 months
-RMSE     : 5.412 months
-R²       : 0.9837
-Bias     : +0.794 months
-MedianAE : 3.279 months
-P90AE    : 8.688 months
-P95AE    : 10.452 months
-MaxAE    : 17.581 months
-```
-
-평가 코드:
-
-```text
-src/bone_age/evaluate_bone_age.py
-```
-
-상세 결과:
-
-- [`results/heldout_test/test_metrics.txt`](results/heldout_test/test_metrics.txt)
-- [`results/heldout_test/test_summary.json`](results/heldout_test/test_summary.json)
-- [`results/heldout_test/test_predictions.csv`](results/heldout_test/test_predictions.csv)
-- [`results/heldout_test/test_subgroups.csv`](results/heldout_test/test_subgroups.csv)
-
----
-
-## 8. Dashboard
-
-학습된 최종 모델을 실제로 사용할 수 있도록 inference dashboard를 구성했습니다.
-
-<p align="center">
-  <img src="assets/dashboard.png" width="95%" alt="Bone age dashboard"/>
-</p>
-
-Dashboard pipeline:
+학습된 모델을 실제 추론 흐름으로 확인할 수 있도록 dashboard를 구성했습니다.
 
 ```text
 X-ray Upload
     ↓
-YOLOX-S Detection
+Hand Detection
     ↓
 Hand Segmentation
     ↓
 PCA Alignment
     ↓
-Masked Percentile + Background Removal
+Input Standardization
     ↓
-512×512 Input
-    ↓
-ConvNeXt V1-Tiny + Sex-specific LDL
+ConvNeXt + Sex-specific LDL
     ↓
 Bone Age Prediction
 ```
 
-배포용 모델 파일은 다음 위치에서 사용됩니다.
+![Dashboard](assets/dashboard.png)
+
+배포용 모델 weight:
 
 ```text
 app/backend/model_package/models/
@@ -354,17 +349,18 @@ app/backend/model_package/models/
 └─ yolox_s_hand_best.pth
 ```
 
-대용량 model weight는 Git 저장소에서 **Git LFS** 사용을 권장합니다.
+모델 weight는 Git LFS로 관리합니다.
 
 ---
 
-## 9. Repository Structure
+## 11. Repository Structure
 
 ```text
-hand-bone-age-project/
+hand-bone-age-estimation/
 ├─ README.md
 ├─ requirements.txt
 ├─ .gitignore
+├─ .gitattributes
 │
 ├─ src/
 │  ├─ detection/
@@ -380,12 +376,9 @@ hand-bone-age-project/
 │     └─ evaluate_bone_age.py
 │
 ├─ app/
-│  └─ backend/
-│     └─ model_package/
-│        └─ models/
-│           ├─ best_model.pt
-│           ├─ hand_seg_crop512_traced.pt
-│           └─ yolox_s_hand_best.pth
+│  ├─ backend/
+│  ├─ frontend/
+│  └─ run_all.bat
 │
 ├─ assets/
 │  ├─ raw_xray.png
@@ -403,19 +396,14 @@ hand-bone-age-project/
 │
 ├─ results/
 │  └─ heldout_test/
-│     ├─ README.md
-│     ├─ test_metrics.txt
-│     ├─ test_predictions.csv
-│     ├─ test_subgroups.csv
-│     └─ test_summary.json
 │
-├─ configs/
 └─ docs/
+   └─ hand_bone_age_portfolio.pdf
 ```
 
 ---
 
-## 10. Installation
+## 12. Installation
 
 ### Python Environment
 
@@ -441,28 +429,12 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-### GPU / CUDA
-
-GPU acceleration is supported through PyTorch CUDA.
-
+GPU acceleration is supported through PyTorch CUDA.  
 CUDA-enabled PyTorch는 사용 중인 NVIDIA driver / CUDA 환경에 맞는 build를 설치하는 것을 권장합니다.
-
-GPU 확인:
-
-```python
-import torch
-
-print("PyTorch:", torch.__version__)
-print("CUDA:", torch.version.cuda)
-print("GPU available:", torch.cuda.is_available())
-
-if torch.cuda.is_available():
-    print("GPU:", torch.cuda.get_device_name(0))
-```
 
 ---
 
-## 11. Training
+## 13. Training & Evaluation
 
 ### Bone Age Core Model
 
@@ -470,24 +442,10 @@ if torch.cuda.is_available():
 python src/bone_age/train_bone_age_ldl.py
 ```
 
-기본 출력:
-
-```text
-outputs/bone_age_ldl/
-```
-
 ### Male Bias Refinement
-
-Core model 학습 후:
 
 ```bash
 python src/bone_age/train_male_bias_refinement.py
-```
-
-기본 출력:
-
-```text
-outputs/male_bias_refinement/
 ```
 
 ### Held-out Test
@@ -498,22 +456,16 @@ outputs/male_bias_refinement/
 python src/bone_age/evaluate_bone_age.py
 ```
 
-> Held-out test 결과를 이용해 다시 모델을 선택하거나 하이퍼파라미터를 조정하지 않습니다.
+> Held-out Test 결과를 사용해 다시 모델을 선택하거나 하이퍼파라미터를 조정하지 않습니다.
 
 ---
 
-## 12. Preprocessing
+## 14. Preprocessing
 
 ### Step 1 — Detection / Segmentation / Alignment
 
 ```bash
 python src/preprocessing/create_seg_aligned_dataset.py --split all
-```
-
-기본 출력:
-
-```text
-outputs/seg_aligned_native/
 ```
 
 ### Step 2 — Final 512×512 Input
@@ -522,36 +474,22 @@ outputs/seg_aligned_native/
 python src/preprocessing/create_final_512_input.py
 ```
 
-기본 출력:
-
-```text
-outputs/final_512_input/
-```
-
-원본 의료영상과 학습 데이터는 repository에 포함하지 않습니다.
+원본 의료영상과 학습 데이터셋은 repository에 포함하지 않습니다.
 
 ---
 
-## 13. Git LFS for Model Weights
+## 15. Portfolio
 
-모델 weight를 저장소에 포함하는 경우 Git LFS 사용을 권장합니다.
-
-```bash
-git lfs install
-git lfs track "*.pt"
-git lfs track "*.pth"
-```
-
-이후 생성된 `.gitattributes`를 함께 commit합니다.
+[View Project Presentation](docs/hand_bone_age_portfolio.pdf)
 
 ---
 
-## 14. Notes
+## Notes
 
-- 본 저장소는 프로젝트의 **전처리, 모델 학습, 평가, inference pipeline**을 재구성할 수 있도록 정리했습니다.
+- 본 저장소는 프로젝트의 전처리, 모델 학습, 평가, inference pipeline을 재구성할 수 있도록 정리했습니다.
 - 원본 의료영상 및 학습 데이터셋은 저장소에 포함하지 않습니다.
-- `outputs/`는 학습/전처리 과정에서 생성되는 중간 결과이므로 `.gitignore`에서 제외합니다.
-- 공개할 최종 평가 결과는 `results/`에 별도로 보관합니다.
+- `outputs/`는 학습 및 전처리 과정의 중간 결과이므로 `.gitignore`에서 제외합니다.
+- 공개 최종 평가 결과는 `results/heldout_test/`에 보관합니다.
 - 모델 weight는 `app/backend/model_package/models/`에서 inference에 사용됩니다.
 
 ---
